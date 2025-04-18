@@ -11,7 +11,7 @@ This is a tool I made for myself to translate comics/manga in the browser. While
 
 The extension uses a detection-transformer model to identify speech bubbles and free text in order to anchor the OCR service. It is currently set up to use Tesseract.js (totally free, configured to run locally in the browser) or Google Cloud Vision OCR (1000 pages per month free, 1.50 per 1000 images after). Tesseract is less powerful than the Google API, so it may struggle on free text with noisy backgrounds or odd fonts, but for pages with clean text or mostly speech bubbles it works nearly as well as google.
 
-The extension currently requires providing a DeepL or Google API key, but cannot and will not steal it (you can look at the code). However, PLEASE be careful on where you are pasting your keys. The DeepL free API will not bill you for exceeding 500,000 characters in a month, but the Google key can be annoying to set limits for.
+The extension currently requires providing a DeepL or Google API key, but cannot and will not steal it (you can look at the code). However, PLEASE be careful on where you are pasting your keys. The DeepL free API will not bill you for exceeding 500,000 characters in a month, but the Google key does not have hard limits set by default, so I highly reccomend taking the time to set limits for only the required APIs before use to be safe.
 
 In order to package and run it for yourself:
 
