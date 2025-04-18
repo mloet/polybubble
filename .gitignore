@@ -1,0 +1,7 @@
+node_modules/
+build/
+test/
+models/comic_text_bubble_detector.onnx
+package-lock.json
+local_libraries/
+temp/

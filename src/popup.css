@@ -1,0 +1,181 @@
+/* General Styles */
+body {
+    width: 300px;
+    font-family: "Trebuchet MS", sans-serif;
+    /* font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; */
+    margin: 0;
+    padding: 0;
+    background-color: #ffffff;
+    color: #000000;
+}
+
+.container {
+    padding: 20px;
+}
+
+h1 {
+    font-size: 20px;
+    margin-top: 0;
+    margin-bottom: 15px;
+    /* Consistent spacing */
+    color: #000000;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Settings Section */
+.settings-section {
+    margin-bottom: 10px;
+    /* Reduced spacing */
+}
+
+.settings-section label {
+    display: block;
+    margin-bottom: 5px;
+    /* Consistent spacing */
+    font-size: 14px;
+    font-weight: 500;
+    color: #333333;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+/* Consistent Spacing for All Sections */
+.service-container,
+.language-dropdown {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+    /* Reduced spacing */
+}
+
+.service-container select,
+.language-dropdown select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    font-size: 14px;
+    background-color: #f9f9f9;
+    color: #000000;
+    outline: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.service-container select:focus,
+.language-dropdown select:focus {
+    border-color: #000000;
+}
+
+/* API Key Container Modifications */
+.api-key-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    /* Reduced spacing */
+}
+
+.api-key-container label {
+    width: 100%;
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333333;
+}
+
+.api-key-container input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #cccccc;
+    border-radius: 8px;
+    font-size: 14px;
+    background-color: #f9f9f9;
+    color: #000000;
+    outline: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.api-key-container input:focus {
+    border-color: #000000;
+}
+
+/* Small Button Style */
+.small-button {
+    margin-top: 0 !important;
+    margin-left: 5px !important;
+    width: 45px !important;
+    padding: 10px 0 !important;
+    font-size: 12px;
+    white-space: nowrap;
+    font-weight: bold;
+    font-family: "Trebuchet MS", sans-serif;
+    text-align: center;
+}
+
+/* Standard Buttons */
+button {
+    margin-top: 5px;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background-color: #000000;
+    color: #ffffff;
+    font-family: "Trebuchet MS", sans-serif;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    background-color: #333333;
+}
+
+button:active {
+    background-color: #555555;
+}
+
+/* Status Message */
+.status-message {
+    margin-top: 10px;
+    /* Reduced spacing */
+    font-size: 13px;
+    text-align: center;
+    color: #000000;
+}
+
+/* Language Selection */
+.language-selection {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 5px;
+    /* Significantly reduced spacing before the Detect All button */
+}
+
+.settings-section label,
+.service-container label,
+.language-dropdown label {
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333333;
+}
+
+/* Header */
+.header {
+    text-align: center;
+    margin-bottom: 15px;
+    /* Consistent spacing */
+}
+
+.header-image {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    filter: grayscale(100%);
+}
