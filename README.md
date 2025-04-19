@@ -5,13 +5,13 @@
   <img src="https://github.com/user-attachments/assets/e6e4a4b7-a750-4fe7-99ef-a0a8dc29046a" alt="polyheader">
 </div>
 
-An automatic comic translator extension, using Tesseract and a DETR model to identify and translate text. Under development, so may not work perfectly. When sufficiently polished, I may add it to the chrome store.
+An automatic comic translator extension, using Tesseract and a DETR model to identify and translate text. Under development, so may not work perfectly.
 
 This is a tool I made for myself to translate comics in the browser. While there are a number of desktop based applications and a few paid browser extensions, I wanted to put togther a tool that could be used convieniently without paying for hosting a backend or LLM API calls. Currently the extension requires setting up either a Google or DeepL API key, which both allow 500,000 characters of translation a month (which should probably be more than enough). I am considering experimenting with lightweight translation models that could be packaged with the extension, but as of right now DeepL or Google are the only options. 
 
 The extension uses a detection-transformer model to identify speech bubbles and free text in order to anchor the OCR service. It is currently set up to use Tesseract.js (totally free, configured to run locally in the browser) or Google Cloud Vision OCR (1000 pages per month free, 1.50 per 1000 images after). Tesseract is less powerful than the Google API, so it may struggle on free text with noisy backgrounds or odd fonts, but for pages with clean text or mostly speech bubbles it works nearly as well as google.
 
-The extension currently requires providing a DeepL or Google API key, but is run completely locally. However, PLEASE be careful on where you are pasting your keys. The DeepL free API will not bill you for exceeding 500,000 characters in a month, but the Google key does not have hard limits set by default, so I highly recommend taking the time to set limits for only the required APIs before use to be safe, and to practice safe browsing to avoid malware that could access your keys.
+The extension currently requires providing a DeepL or Google API key, but is run completely locally. However, PLEASE be careful on where you are pasting your keys. The DeepL free API will not bill you for exceeding 500,000 characters in a month, but the Google key does not have hard limits set by default, so I highly recommend taking the time to set limits for only the required APIs before use to be safe, and to practice safe browsing to avoid malware that could access your keys. If you are worried about security, using the DeepL free API and Tesseract incurs no risk.
 
 In order to package and run it for yourself:
 
