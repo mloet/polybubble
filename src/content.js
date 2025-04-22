@@ -111,16 +111,10 @@ function addDetectionButton(img) {
   button.title = 'Detect comic bubbles';
 
   // Create toggle button
-  // const toggleButton = document.createElement('button');
-  // toggleButton.className = 'comic-bubble-toggle-button';
-  // toggleButton.textContent = 'HIDE'; // Default state
-  // toggleButton.style.display = 'none'; // Initially hidden
-
-  // Create results container
-  // const resultsContainer = document.createElement('div');
-  // resultsContainer.className = 'comic-bubble-detector-results';
-  // resultsContainer.style.display = 'none';
-  // resultsContainer.style.pointerEvents = 'none'; // Prevent clicks on the results container
+  const toggleButton = document.createElement('button');
+  toggleButton.className = 'comic-bubble-toggle-button';
+  toggleButton.textContent = 'HIDE'; // Default state
+  toggleButton.style.display = 'none'; // Initially hidden
 
   // Insert wrapper before the image in DOM
   try {
@@ -132,18 +126,19 @@ function addDetectionButton(img) {
       // Move image inside wrapper
       wrapper.appendChild(img);
 
-      // Add buttons and results container
+      // Add buttons
       wrapper.appendChild(button);
-      // wrapper.appendChild(toggleButton);
-      // wrapper.appendChild(resultsContainer);
+      wrapper.appendChild(toggleButton);
 
       // Store reference to elements
       img.detectorElements = {
         wrapper,
         button,
-        // toggleButton,
-        // resultsContainer,
+        toggleButton,
       };
+
+      // Store the original image src
+      img.dataset.originalSrc = img.src;
 
       // Add click handler for detection button
       button.addEventListener('click', (event) => {
@@ -159,17 +154,18 @@ function addDetectionButton(img) {
       });
 
       // Add click handler for toggle button
-      // toggleButton.addEventListener('click', (event) => {
-      //   event.stopPropagation();
+      toggleButton.addEventListener('click', (event) => {
+        event.stopPropagation();
 
-      //   if (resultsContainer.style.display === 'none') {
-      //     resultsContainer.style.display = 'block'; // Show detections
-      //     toggleButton.textContent = 'HIDE';
-      //   } else {
-      //     resultsContainer.style.display = 'none'; // Hide detections
-      //     toggleButton.textContent = 'SHOW';
-      //   }
-      // });
+        // Toggle between original and detection result
+        if (img.src === img.dataset.originalSrc) {
+          img.src = img.dataset.detectionSrc || img.src; // Switch to detection result
+          toggleButton.textContent = 'HIDE';
+        } else {
+          img.src = img.dataset.originalSrc; // Switch back to original
+          toggleButton.textContent = 'SHOW';
+        }
+      });
     }
   } catch (error) {
     console.error('Error adding detection button:', error);
@@ -191,6 +187,12 @@ function handleDetectionRequest(img) {
     return;
   }
 
+  // Reset the image to its original source before processing
+  if (img.src !== img.dataset.originalSrc) {
+    console.log(`Resetting image ${imageId} to its original source before retrying detection`);
+    img.src = img.dataset.originalSrc;
+  }
+
   // Mark as processing
   processingImages.set(imageId, true);
 
@@ -199,7 +201,6 @@ function handleDetectionRequest(img) {
   // Show loading state
   const icon = button.querySelector('img');
   if (icon) {
-    // icon.src = chrome.runtime.getURL('icons/ellipses.png');
     icon.alt = 'Processing...';
   }
 
@@ -339,13 +340,10 @@ function handleDetectionResults(imageId, results, error) {
     return;
   }
 
-  const { button } = img.detectorElements;
+  const { button, toggleButton } = img.detectorElements;
 
   // Update button state
   button.dataset.processing = 'false';
-
-  // Clear previous results
-  // resultsContainer.innerHTML = '';
 
   // Clear processing status
   processingImages.delete(imageId);
@@ -369,8 +367,17 @@ function handleDetectionResults(imageId, results, error) {
     return;
   }
 
-  img.src = results.url || img.src;
-  img.srcset = results.url || img.src;
+  // Store the detection result URL
+  img.dataset.detectionSrc = results.url;
+
+  // Set the image source to the detection result by default
+  img.src = img.dataset.detectionSrc;
+
+  // Update the toggle button text to "SHOW" (to allow switching back to the original image)
+  toggleButton.textContent = 'SHOW';
+
+  // Make the toggle button visible
+  toggleButton.style.display = 'inline-block';
 }
 
 function setupMutationObserver() {

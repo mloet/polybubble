@@ -2,7 +2,7 @@ import * as ort from "onnxruntime-web";
 import Tesseract, { PSM } from 'tesseract.js';
 import { Image as ImageJS } from 'image-js';
 import Typo from "typo-js";
-import { nonMaxSuppression, base64ToCanvas, resizeCanvas, cropCanvas, calculateMidpointColors, applyEllipticalGradientMask, applyInverseEllipticalGradientMask } from './utils.js';
+import { nonMaxSuppression, base64ToCanvas, resizeCanvas, cropCanvas, calculateMidpointColors, applyEllipticalGradientMask, applyEllipticalBlur } from './utils.js';
 
 
 // Global service settings
@@ -130,9 +130,9 @@ async function performTesseractOCR(subsection, classIndex, x1, y1, scaleFactor, 
   processedSubsection = processedSubsection.grey();
   if (classIndex === 2) processedSubsection = processedSubsection.gaussianFilter({ radius: 5 });
   if (backgroundColor.r < 30 && backgroundColor.g < 30 && backgroundColor.b < 30) processedSubsection = processedSubsection.invert();
-  processedSubsection = processedSubsection.mask({ algorithm: 'otsu', threshold: 0.3 });
-  // processedSubsection = processedSubsection.dilate({ iterations: 1 });
-  console.log(processedSubsection.toDataURL());
+  processedSubsection = processedSubsection.mask({ algorithm: 'otsu' });
+  processedSubsection = processedSubsection.dilate({ iterations: 1 });
+  // console.log(processedSubsection.toDataURL());
   const { data: { text, blocks } } = await tesseract_worker.recognize(
     processedSubsection.toDataURL(),
     { tessedit_pageseg_mode: PSM.SINGLE_BLOCK },
@@ -215,13 +215,19 @@ async function performGoogleOCR(imageSrc) {
       return { blocks: [] };
     }
 
+
     const blocks = data.responses[0].fullTextAnnotation.pages[0].blocks.map(block => {
       const blockVertices = block.boundingBox.vertices;
 
       // Extract words and their bounding boxes
       const words = block.paragraphs.flatMap(paragraph =>
         paragraph.words.map(word => ({
-          text: word.symbols.map(symbol => symbol.text).join(''),
+          text: word.symbols.map(symbol => {
+            let symbolText = symbol.text;
+            if (symbol.property?.detectedBreak?.type === "LINE_BREAK") symbolText += "\n";
+
+            return symbolText;
+          }).join(''),
           boundingBox: word.boundingBox.vertices
         }))
       );
@@ -234,7 +240,7 @@ async function performGoogleOCR(imageSrc) {
       const fontSize = words.length > 0 ? totalHeight / words.length : 0;
 
       // Combine block-level data
-      const joinedText = words.map(word => word.text).join(' ').replace(/\s+([.,!?])/g, '$1').replace(/-\s/g, '');;
+      const joinedText = words.map(word => word.text).join(' ');
 
       return {
         text: joinedText,
@@ -243,7 +249,7 @@ async function performGoogleOCR(imageSrc) {
         wordBoxes: words
       };
     });
-    // console.log(data);
+    console.log(data);
 
     return { blocks };
   } catch (error) {
@@ -318,18 +324,22 @@ async function translateWithDeepL(text, context, forcedSourceLang = null, forced
   }
 
   try {
+    const bodyParams = new URLSearchParams({
+      auth_key: serviceSettings.deeplApiKey,
+      text: text,
+      target_lang: targetLang.toUpperCase(),
+    });
+
+    if (sourceLang !== 'AUTO') {
+      bodyParams.append('source_lang', sourceLang.toUpperCase());
+    }
+
     const response = await fetch("https://api-free.deepl.com/v2/translate", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        auth_key: serviceSettings.deeplApiKey,
-        text: text,
-        context: context,
-        source_lang: sourceLang.toUpperCase(),
-        target_lang: targetLang.toUpperCase(),
-      }),
+      body: bodyParams,
     });
 
     if (!response.ok) {
@@ -542,19 +552,18 @@ async function postprocessOutput(outputs, canvas, googleResults) {
         const subsection = cropCanvas(scaledCanvas, x1 * scaleFactor.x, y1 * scaleFactor.y, w * scaleFactor.x, h * scaleFactor.y);
 
         const ocrResults = await performTesseractOCR(subsection, classIndex, x1, y1, scaleFactor, detection.backgroundColor);
-        detection.text = ocrResults.text.replace(/\n/g, ' ');
+        detection.text = ocrResults.text;
         detection.fontSize = ocrResults.fontSize || 0;
         detection.wordBoxes = ocrResults.wordBoxes || [];
       }
 
       if (detection.text) {
-        console.log('Detected text:', detection.text);
-
-        detection.translatedText = await translateText(detection.text, context, serviceSettings.sourceLanguage, serviceSettings.targetLanguage);
+        // console.log('Detected text:', detection.text);
+        detection.translatedText = await translateText(detection.text.replace(/\s+([.,!?])/g, '$1').replace(/-\n/g, ''), context, serviceSettings.sourceLanguage, serviceSettings.targetLanguage);
         context += detection.text + ' ';
         detection.translatedText = detection.translatedText.toUpperCase();
 
-        console.log('Translated text:', detection.translatedText);
+        // console.log('Translated text:', detection.translatedText);
       } else {
         detection.translatedText = '';
       }
@@ -570,7 +579,7 @@ async function postprocessOutput(outputs, canvas, googleResults) {
 }
 
 function renderDetection(canvas, detection) {
-  const { x1, y1, x2, y2, translatedText, wordBoxes, backgroundColor } = detection;
+  const { x1, y1, x2, y2, translatedText, wordBoxes, backgroundColor, classIndex } = detection;
   const boxWidth = x2 - x1; // Width of the bounding box
   const boxHeight = y2 - y1; // Height of the bounding box
 
@@ -582,8 +591,8 @@ function renderDetection(canvas, detection) {
   // ctx.strokeRect(x1, y1, boxWidth, boxHeight);
 
   // Draw word bounding boxes
-  if (wordBoxes && wordBoxes.length > 0) {
-    ctx.fillStyle = `rgb(${backgroundColor.r}, ${backgroundColor.g}, ${backgroundColor.b})` || 'rgb(255, 255, 255)';
+  if (classIndex !== 2 && wordBoxes && wordBoxes.length > 0) {
+    ctx.fillStyle = `rgb(${backgroundColor.r}, ${backgroundColor.g}, ${backgroundColor.b})`;
     wordBoxes.forEach(word => {
       const [topLeft, topRight, bottomRight, bottomLeft] = word.boundingBox;
 
@@ -621,19 +630,8 @@ function renderDetection(canvas, detection) {
   }
 
   if (translatedText) {
-    if (backgroundColor) {
-      const gradient = ctx.createRadialGradient(
-        x1 + boxWidth / 2, y1 + boxHeight / 2, 0, // Inner circle (center, radius 0)
-        x1 + boxWidth / 2, y1 + boxHeight / 2, Math.max(boxWidth, boxHeight) / 2 // Outer circle (center, max radius)
-      );
 
-      gradient.addColorStop(0.8, `rgba(${backgroundColor.r}, ${backgroundColor.g}, ${backgroundColor.b}, 1)`);
-      gradient.addColorStop(1, `rgba(${backgroundColor.r}, ${backgroundColor.g}, ${backgroundColor.b}, 0)`);
-
-      // Draw the gradient over the bounding box
-      ctx.fillStyle = gradient;
-      ctx.fillRect(x1, y1, boxWidth, boxHeight);
-    }
+    applyEllipticalBlur(canvas, x1, y1, boxWidth, boxHeight, 40);
 
     const textX = (x1 + x2) / 2; // Center horizontally
     let fontSize = detection.fontSize; // Start with the initial font size
@@ -699,7 +697,7 @@ function renderDetection(canvas, detection) {
     ctx.font = `italic bold ${fontSize}px "CC Wild Words", "Comic Sans MS", Arial, sans-serif`;
     ctx.fillStyle = 'black'; // Text fill color
     ctx.strokeStyle = 'white'; // Outline color
-    ctx.lineWidth = 4; // Outline thickness
+    ctx.lineWidth = 8; // Outline thickness
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 

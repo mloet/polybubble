@@ -36,6 +36,7 @@
 }
 
 .comic-bubble-detector-button:hover {
+  pointer-events: auto;
   opacity: 1;
   transform: scale(1.1);
 }
@@ -79,7 +80,7 @@
 .comic-bubble-toggle-button {
   background: rgba(255, 255, 255, 0.8);
   color: black;
-  border: none;
+  border: 1px solid black;
   border-radius: 10px;
   text-align: center;
   width: 50px;
@@ -87,29 +88,29 @@
   cursor: pointer;
   display: flex;
   align-items: center;
+  /* Vertically center the text */
   justify-content: center;
-  font-family: 'Calibri', sans-serif;
+  /* Horizontally center the text */
+  font-family: "Trebuchet MS", sans-serif;
   font-size: 12px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  line-height: 1;
+  /* Ensure line height doesn't affect vertical alignment */
   transition: background-color 0.2s ease, opacity 0.2s ease;
   opacity: 0;
-  /* Initially hidden */
   pointer-events: none;
   position: absolute;
   top: 60px;
-  /* Position below the detection button */
   left: 0px;
 }
 
 .comic-bubble-detector-wrapper:hover .comic-bubble-toggle-button {
   opacity: 0.8;
-  /* Show button with 0.8 transparency when hovering over the image */
   pointer-events: auto;
-  /* Enable interaction */
 }
 
 .comic-bubble-toggle-button:hover {
+  pointer-events: auto;
   opacity: 1;
-  /* Fully opaque when hovering over the button */
+  transform: scale(1.05);
   background-color: rgb(255, 255, 255);
 }

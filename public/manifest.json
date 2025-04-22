@@ -9,15 +9,7 @@
     "contextMenus",
     "storage",
     "offscreen",
-    "commands",
-    "https://api-free.deepl.com/*",
-    "https://translation.googleapis.com/*",
-    "https://vision.googleapis.com/*"
-  ],
-  "host_permissions": [
-    "https://api-free.deepl.com/*",
-    "https://translation.googleapis.com/*",
-    "https://vision.googleapis.com/*"
+    "commands"
   ],
   "background": {
     "service_worker": "background.js",

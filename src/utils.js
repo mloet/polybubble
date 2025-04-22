@@ -170,31 +170,86 @@ export function applyEllipticalGradientMask(canvas, backgroundColor) {
 //   ctx.drawImage(offscreenCanvas, 0, 0);
 // }
 
-export function applyInverseEllipticalGradientMask(canvas, x, y, width, height) {
+// export function applyEllipticalBlur(canvas, x, y, width, height) {
+//   const ctx = canvas.getContext('2d');
+
+//   // Create an offscreen canvas to apply the blur effect
+//   const offscreenCanvas = document.createElement('canvas');
+//   offscreenCanvas.width = width;
+//   offscreenCanvas.height = height;
+//   const offscreenCtx = offscreenCanvas.getContext('2d');
+
+//   // Draw the original canvas content onto the offscreen canvas
+//   offscreenCtx.drawImage(canvas, 0, 0);
+
+//   // Apply a radial gradient mask to control the blur intensity
+//   const gradient = ctx.createRadialGradient(
+//     x + width / 2, y + height / 2, 0, // Inner circle (center, radius 0)
+//     x + width / 2, y + height / 2, Math.max(width, height) / 2 // Outer circle (center, max radius)
+//   );
+
+//   // Add color stops: no blur in the center, increasing blur at the edges
+//   gradient.addColorStop(0.8, 'rgba(0, 0, 0, 1)'); // No blur in the center
+//   gradient.addColorStop(1, 'rgba(0, 0, 0, 0)'); // Full blur at the edges
+
+//   // Apply the gradient as a mask
+//   ctx.filter = 'blur(20px)'; // Adjust the blur intensity as needed
+//   ctx.drawImage(offscreenCanvas, 0, 0);
+// }
+
+// export function applyEllipticalBlur(canvas, x, y, width, height) {
+//   const ctx = canvas.getContext('2d');
+//   ctx.save();
+
+//   // Create an offscreen canvas for the blurred version
+//   const offscreenCanvas = document.createElement('canvas');
+//   offscreenCanvas.width = canvas.width;  // Use full canvas dimensions
+//   offscreenCanvas.height = canvas.height;
+//   const offscreenCtx = offscreenCanvas.getContext('2d');
+
+//   // Draw the original content
+//   offscreenCtx.drawImage(canvas, 0, 0);
+
+//   // Apply blur to the offscreen canvas
+//   offscreenCtx.filter = 'blur(20px)';
+//   offscreenCtx.drawImage(canvas, 0, 0);
+
+//   // Create a gradient for masking
+//   const gradient = ctx.createRadialGradient(
+//     x + width / 2, y + height / 2, 0,           // Inner circle center
+//     x + width / 2, y + height / 2, width / 2      // Outer circle center and radius
+//   );
+
+//   // Define gradient stops
+//   gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');      // Center: fully blurred
+//   gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.8)');  // Mid: partially blurred
+//   gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');      // Edge: no blur
+
+//   // Draw the blurred version
+//   ctx.drawImage(offscreenCanvas, 0, 0);
+
+//   // Apply the gradient mask
+//   ctx.globalCompositeOperation = 'destination-in';
+//   ctx.fillStyle = gradient;
+//   ctx.fillRect(x, y, width, height);
+//   ctx.restore();
+// }
+
+export function applyEllipticalBlur(canvas, x, y, w, h, blur) {
   const ctx = canvas.getContext('2d');
+  // Save the current canvas state
+  ctx.save();
 
-  // Create an offscreen canvas to apply the blur effect
-  const offscreenCanvas = document.createElement('canvas');
-  offscreenCanvas.width = width;
-  offscreenCanvas.height = height;
-  const offscreenCtx = offscreenCanvas.getContext('2d');
+  // Apply blur filter
+  ctx.filter = `blur(${blur}px)`;
 
-  // Draw the original canvas content onto the offscreen canvas
-  offscreenCtx.drawImage(canvas, 0, 0);
+  // Draw the ellipse
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-  // Apply a radial gradient mask to control the blur intensity
-  const gradient = ctx.createRadialGradient(
-    x + width / 2, y + height / 2, 0, // Inner circle (center, radius 0)
-    x + width / 2, y + height / 2, Math.max(width, height) / 2 // Outer circle (center, max radius)
-  );
-
-  // Add color stops: no blur in the center, increasing blur at the edges
-  gradient.addColorStop(0.8, 'rgba(0, 0, 0, 0)'); // No blur in the center
-  gradient.addColorStop(1, 'rgba(0, 0, 0, 1)'); // Full blur at the edges
-
-  // Apply the gradient as a mask
-  ctx.filter = 'blur(20px)'; // Adjust the blur intensity as needed
-  ctx.drawImage(offscreenCanvas, 0, 0);
+  // Restore the canvas state (removes the blur filter)
+  ctx.restore();
 }
 
 export function imageDataToDataURL(imageData) {
