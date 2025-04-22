@@ -175,37 +175,42 @@ function addDetectionButton(img) {
   setupMutationObserver();
 }
 
-// Handle click on detection button
-function handleDetectionRequest(img) {
-  // Generate a unique ID for this image if not already assigned
+function detectImage(imageData, imageId) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({
+      action: 'initWebpageDetection',
+      imageData: imageData,
+      imageId: imageId
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else if (response && response.error) {
+        reject(new Error(response.error));
+      } else {
+        resolve(response.results);
+      }
+    });
+  });
+}
+
+async function handleDetectionRequest(img) {
   const imageId = img.dataset.detectorId || `img_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
   img.dataset.detectorId = imageId;
 
-  // Check if already processing
-  if (processingImages.has(imageId) || img.detectorElements.button.dataset.processing === 'true') {
+  if (processingImages.has(imageId)) {
     console.log(`Image ${imageId} is already being processed, ignoring request`);
     return;
   }
 
-  // Reset the image to its original source before processing
-  if (img.src !== img.dataset.originalSrc) {
-    console.log(`Resetting image ${imageId} to its original source before retrying detection`);
-    img.src = img.dataset.originalSrc;
-  }
-
-  // Mark as processing
   processingImages.set(imageId, true);
 
   const { button } = img.detectorElements;
-
-  // Show loading state
   const icon = button.querySelector('img');
   if (icon) {
     icon.alt = 'Processing...';
+    button.dataset.processing = 'true';
+    button.title = 'Processing image...';
   }
-
-  button.dataset.processing = 'true';
-  button.title = 'Processing image...';
 
   const cycleImages = ['icons/ellipses1.png', 'icons/ellipses2.png', 'icons/ellipses.png'];
   let cycleIndex = 0;
@@ -216,68 +221,47 @@ function handleDetectionRequest(img) {
     }
   }, 1000);
 
-  console.log(`Starting detection for image ${imageId}`);
-
-  // Try to convert image to base64
   try {
-    // Check for cross-origin restrictions
-    if (isCrossOrigin(img.src) && !img.crossOrigin) {
-      throw new Error('Cross-origin image cannot be processed. Try right-clicking and saving the image first.');
-    }
-
-    // Create off-screen canvas
+    // Convert the image to base64
     const canvas = document.createElement('canvas');
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
-
     const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const imageData = canvas.toDataURL('image/png');
 
-    try {
-      // This may fail for cross-origin images
-      ctx.drawImage(img, 0, 0);
-
-      // Get base64 data
-      const imageData = canvas.toDataURL('image/png');
-
-      // Check if imageData is a valid base64 string
-      if (!imageData || imageData === 'data:,') {
-        throw new Error('Failed to convert image to data URL');
-      }
-
-      console.log(`Successfully converted image to base64, sending to background`);
-
-      // Send to background script
-      chrome.runtime.sendMessage({
-        action: 'initWebpageDetection',
-        imageData: imageData,
-        imageId: imageId
-      }).catch(error => {
-        console.error(`Error sending message to background script: ${error.message}`);
-        handleDetectionError(img, `Failed to send message to extension: ${error.message}`);
-      });
-
-    } catch (canvasError) {
-      throw new Error(`Canvas error: ${canvasError.message}`);
+    if (!imageData || imageData === 'data:,') {
+      throw new Error('Failed to convert image to data URL');
     }
-  } catch (e) {
-    // Handle all errors
-    console.error(`Error processing image: ${e.message}`);
-    handleDetectionError(img, e.message);
+
+    console.log(`Starting detection for image ${imageId}`);
+    const results = await detectImage(imageData, imageId);
+
+    // Handle successful detection
+    img.dataset.detectionSrc = results.url;
+    img.src = img.dataset.detectionSrc;
+
+    const { toggleButton } = img.detectorElements;
+    toggleButton.textContent = 'SHOW';
+    toggleButton.style.display = 'inline-block';
+
+    console.log(`Detection completed for image ${imageId}`);
+  } catch (error) {
+    console.error(`Error processing image ${imageId}: ${error.message}`);
+    handleDetectionError(img, error.message);
   } finally {
-    // Stop cycling images when processing is complete
-    chrome.runtime.onMessage.addListener((message) => {
-      if (message.action === "detectionCompleted" && message.imageId === imageId) {
-        clearInterval(cycleInterval); // Stop cycling
-        if (icon) {
-          icon.src = chrome.runtime.getURL('icons/retry.png'); // Reset to default icon
-          icon.alt = 'Detect comic bubbles';
-        }
-      }
-    });
+    processingImages.delete(imageId);
+    clearInterval(cycleInterval);
+
+    if (icon) {
+      icon.src = chrome.runtime.getURL('icons/retry.png');
+      icon.alt = 'Retry detection';
+      button.dataset.processing = 'false';
+      button.title = 'Retry detection';
+    }
   }
 }
 
-// Check if an image is cross-origin
 function isCrossOrigin(url) {
   // Data URLs are same-origin
   if (url.startsWith('data:')) {
@@ -300,27 +284,7 @@ function isCrossOrigin(url) {
 function handleDetectionError(img, errorMessage) {
   if (!img.detectorElements) return;
 
-  // const { button, resultsContainer } = img.detectorElements;
   const imageId = img.dataset.detectorId;
-
-  // // Display error message
-  // resultsContainer.innerHTML = '';
-  // const errorDiv = document.createElement('div');
-  // errorDiv.textContent = `Error: ${errorMessage}`;
-  // errorDiv.style.position = 'absolute';
-  // errorDiv.style.top = '50%';
-  // errorDiv.style.left = '50%';
-  // errorDiv.style.transform = 'translate(-50%, -50%)';
-  // errorDiv.style.background = 'rgba(255, 0, 0, 0.7)';
-  // errorDiv.style.color = 'white';
-  // errorDiv.style.padding = '10px';
-  // errorDiv.style.borderRadius = '5px';
-  // errorDiv.style.fontSize = '14px';
-  // errorDiv.style.maxWidth = '80%';
-  // errorDiv.style.textAlign = 'center';
-
-  // resultsContainer.style.display = 'block';
-  // resultsContainer.appendChild(errorDiv);
 
   // Clear processing status
   if (imageId) {
@@ -351,15 +315,9 @@ function handleDetectionResults(imageId, results, error) {
   // Handle errors
   const icon = button.querySelector('img');
   if (icon) {
-    if (error) {
-      icon.src = chrome.runtime.getURL('icons/retry.png');
-      icon.alt = 'Error occurred';
-      button.title = 'Error occurred. Click to retry.';
-    } else {
-      icon.src = chrome.runtime.getURL('icons/retry.png');
-      icon.alt = 'Retry detection';
-      button.title = 'Retry detection';
-    }
+    icon.src = chrome.runtime.getURL('icons/retry.png');
+    icon.alt = 'Retry detection';
+    button.title = 'Retry detection';
   }
 
   if (error) {
@@ -380,6 +338,7 @@ function handleDetectionResults(imageId, results, error) {
   toggleButton.style.display = 'inline-block';
 }
 
+// Set up a MutationObserver to handle dynamically added images
 function setupMutationObserver() {
   // Clean up existing observer
   if (observer) {

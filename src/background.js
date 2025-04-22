@@ -39,7 +39,6 @@ let requestId = 0;
 if (!globalThis.listenersRegistered) {
   // Handle messages from popup.js or content.js
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-
     // Handle settings updates from popup
     if (message.action === "updateserviceSettings") {
       // Update settings
@@ -67,89 +66,32 @@ if (!globalThis.listenersRegistered) {
       return false;
     }
 
-    // Handle detection request from webpage content script
     if (message.action === "initWebpageDetection") {
-      const currentRequestId = requestId++;
-      console.log(`Received detection request from content script in tab ${sender.tab?.id}, assigned ID ${currentRequestId}`);
+      const { imageData, imageId } = message;
 
-      // Store source tab ID and image ID
-      pendingRequests.set(currentRequestId, {
-        sourceTabId: sender.tab?.id,
-        imageId: message.imageId,
-        source: 'content'
-      });
+      (async () => {
+        try {
+          // Ensure the offscreen document is active
+          const offscreenReady = await ensureOffscreenDocument();
+          if (!offscreenReady) {
+            throw new Error("Failed to create offscreen document");
+          }
 
-      // Add to queue instead of processing immediately
-      addToQueue(message.imageData, currentRequestId, serviceSettings);
-
-      // No need for a synchronous response
-      return false;
-    }
-  });
-
-  // Set up detection results listener from offscreen.js
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    // Handle detection results from offscreen document
-    if (message.action === "detectionResults") {
-      console.log(`Received detection results for request ${message.requestId}`);
-
-      // Get the request data using requestId
-      const requestData = pendingRequests.get(message.requestId);
-
-      if (!requestData) {
-        console.warn(`No request data found for request ${message.requestId}`);
-        return false;
-      }
-
-      // Clear any timeouts associated with this request
-      if (requestData.timeout) {
-        clearTimeout(requestData.timeout);
-      }
-
-      const { sourceTabId, imageId, source } = requestData;
-
-      // If from content script (has tab ID and image ID)
-      if (source === 'content' && sourceTabId && imageId) {
-        console.log(`Sending results to content script in tab ${sourceTabId} for image ${imageId}`);
-
-        chrome.tabs.sendMessage(sourceTabId, {
-          action: "detectionCompleted",
-          imageId: imageId,
-          results: message.results,
-          error: message.error
-        }).catch(error => {
-          console.error(`Error sending results to tab ${sourceTabId}:`, error);
-        });
-      }
-
-      // Clean up the request data
-      pendingRequests.delete(message.requestId);
-
-      // Process next request in queue
-      isProcessing = false;
-      processNextInQueue();
-
-      return false;
-    }
-  });
-
-  // Handle translation requests from offscreen.js
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "translateText") {
-      const { text, sourceLang, targetLang } = message;
-      const translationService = serviceSettings.translationService || 'deepl';
-
-      if (translationService === 'deepl') {
-        translateWithDeepL(text, sourceLang, targetLang)
-          .then(translatedText => sendResponse({ translatedText }))
-          .catch(error => sendResponse({ error: error.message }));
-      } else if (translationService === 'googleTranslate') {
-        translateWithGoogle(text, sourceLang, targetLang)
-          .then(translatedText => sendResponse({ translatedText }))
-          .catch(error => sendResponse({ error: error.message }));
-      } else {
-        sendResponse({ error: "Unknown translation service" });
-      }
+          // Forward the detection request to the offscreen document
+          chrome.runtime.sendMessage(
+            { action: "detectObjects", imageData, imageId, serviceSettings },
+            (response) => {
+              if (response.error) {
+                sendResponse({ error: response.error });
+              } else {
+                sendResponse({ results: response.results });
+              }
+            }
+          );
+        } catch (error) {
+          sendResponse({ error: error.message });
+        }
+      })();
 
       return true;
     }
@@ -294,50 +236,4 @@ function handleDetectionError(requestId, errorMessage) {
   // Process next item in queue
   isProcessing = false;
   processNextInQueue();
-}
-
-async function translateWithGoogle(text, sourceLang, targetLang) {
-  const apiKey = serviceSettings.googleApiKey;
-  const googleSourceLang = sourceLang === 'AUTO' ? '' : sourceLang.toLowerCase();
-  const googleTargetLang = targetLang.toLowerCase();
-
-  const response = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      q: text,
-      source: googleSourceLang || null,
-      target: googleTargetLang,
-      format: "text"
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Google Translate API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.data.translations[0].translatedText;
-}
-
-async function translateWithDeepL(text, sourceLang, targetLang) {
-  const apiKey = serviceSettings.deeplApiKey;
-
-  const response = await fetch("https://api-free.deepl.com/v2/translate", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      auth_key: apiKey,
-      text: text,
-      source_lang: sourceLang.toUpperCase(),
-      target_lang: targetLang.toUpperCase(),
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`DeepL API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.translations[0].text;
 }

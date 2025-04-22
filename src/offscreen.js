@@ -66,11 +66,32 @@ if (!window.listenersRegistered) {
     console.log("Offscreen received message:", message.action);
 
     if (message.action === "detectObjects") {
-      if (message.serviceSettings) {
-        serviceSettings = message.serviceSettings;
-        // console.log("Using service settings:", serviceSettings);
-      }
-      detectObjects(message.imageData, message.requestId);
+      if (message.serviceSettings) serviceSettings = message.serviceSettings;
+
+      const { imageData, imageId } = message;
+
+      (async () => {
+        try {
+          // Perform object detection
+          const detectionResults = await detectObjects(imageData);
+
+          // Send the results back using sendResponse
+          sendResponse({
+            action: "detectionResults",
+            imageId: imageId,
+            results: detectionResults,
+          });
+        } catch (error) {
+          // Send the error back using sendResponse
+          sendResponse({
+            action: "detectionResults",
+            imageId: imageId,
+            error: error.message,
+          });
+        }
+      })();
+
+      return true;
     }
 
     return false;
@@ -249,7 +270,6 @@ async function performGoogleOCR(imageSrc) {
         wordBoxes: words
       };
     });
-    console.log(data);
 
     return { blocks };
   } catch (error) {
@@ -401,20 +421,22 @@ async function detectObjects(base64Image, requestId) {
     const results = await postprocessOutput(outputs, canvas, googleResults);
     console.log(`Found ${results.detections.length} detections`);
 
+    return results;
+
     // Send results back
-    chrome.runtime.sendMessage({
-      action: "detectionResults",
-      results: results,
-      requestId: requestId
-    });
+    // chrome.runtime.sendMessage({
+    //   action: "detectionResults",
+    //   results: results,
+    //   requestId: requestId
+    // });
 
   } catch (error) {
     console.error("Detection error:", error);
-    chrome.runtime.sendMessage({
-      action: "detectionResults",
-      error: error.message,
-      requestId: requestId
-    });
+    // chrome.runtime.sendMessage({
+    //   action: "detectionResults",
+    //   error: error.message,
+    //   requestId: requestId
+    // });
   }
 }
 
@@ -590,8 +612,15 @@ function renderDetection(canvas, detection) {
   // ctx.lineWidth = 2; // Set the outline thickness
   // ctx.strokeRect(x1, y1, boxWidth, boxHeight);
 
+  console.log(translatedText, backgroundColor);
+
+  const isWhiteBackground = backgroundColor.r === 255 && backgroundColor.g === 255 && backgroundColor.b === 255;
+  const isBlackBackground = backgroundColor.r === 0 && backgroundColor.g === 0 && backgroundColor.b === 0;
+
+  const drawBoxes = (classIndex !== 2 || isBlackBackground || isWhiteBackground) && wordBoxes && wordBoxes.length > 0; //
+
   // Draw word bounding boxes
-  if (classIndex !== 2 && wordBoxes && wordBoxes.length > 0) {
+  if (drawBoxes) {
     ctx.fillStyle = `rgb(${backgroundColor.r}, ${backgroundColor.g}, ${backgroundColor.b})`;
     wordBoxes.forEach(word => {
       const [topLeft, topRight, bottomRight, bottomLeft] = word.boundingBox;
@@ -631,7 +660,9 @@ function renderDetection(canvas, detection) {
 
   if (translatedText) {
 
-    applyEllipticalBlur(canvas, x1, y1, boxWidth, boxHeight, 40);
+    ctx.filter = "blur(20px)";
+    ctx.drawImage(canvas, x1, y1, boxWidth, boxHeight, x1, y1, boxWidth, boxHeight)
+    ctx.filter = "none";
 
     const textX = (x1 + x2) / 2; // Center horizontally
     let fontSize = detection.fontSize; // Start with the initial font size

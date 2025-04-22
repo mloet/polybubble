@@ -83,18 +83,15 @@
   border: 1px solid black;
   border-radius: 10px;
   text-align: center;
-  width: 50px;
-  height: 20px;
+  width: 40px;
+  height: 15px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  /* Vertically center the text */
   justify-content: center;
-  /* Horizontally center the text */
   font-family: "Trebuchet MS", sans-serif;
   font-size: 12px;
   line-height: 1;
-  /* Ensure line height doesn't affect vertical alignment */
   transition: background-color 0.2s ease, opacity 0.2s ease;
   opacity: 0;
   pointer-events: none;
