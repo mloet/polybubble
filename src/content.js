@@ -3,7 +3,7 @@
 // Global variables to track processed images and detection results
 const processedImages = new Set();
 const processingImages = new Map(); // Maps image IDs to processing status
-const detectionResults = new Map();
+let autoDetectEnabled = false; // Flag to track auto-detection state
 let observer = null;
 
 // Initialize when the page is fully loaded
@@ -25,12 +25,6 @@ if (document.readyState === 'complete') {
 
 // Set up message listener for responses from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "detectionCompleted") {
-    console.log("Got detection completed message:", message);
-    handleDetectionResults(message.imageId, message.results, message.error);
-    return false;
-  }
-
   if (message.action === 'detectAllImages') {
     const images = document.querySelectorAll('img');
     images.forEach((img) => {
@@ -242,7 +236,7 @@ async function handleDetectionRequest(img) {
     img.src = img.dataset.detectionSrc;
 
     const { toggleButton } = img.detectorElements;
-    toggleButton.textContent = 'SHOW';
+    toggleButton.textContent = 'HIDE';
     toggleButton.style.display = 'inline-block';
 
     console.log(`Detection completed for image ${imageId}`);
@@ -278,64 +272,6 @@ function isCrossOrigin(url) {
     // If URL parsing fails, assume it's cross-origin
     return true;
   }
-}
-
-// Handle detection errors
-function handleDetectionError(img, errorMessage) {
-  if (!img.detectorElements) return;
-
-  const imageId = img.dataset.detectorId;
-
-  // Clear processing status
-  if (imageId) {
-    processingImages.delete(imageId);
-  }
-}
-
-// Handle detection results - with improved error handling
-function handleDetectionResults(imageId, results, error) {
-  console.log(`Received detection results for image ${imageId}`);
-
-  // Find the image with this ID
-  const img = document.querySelector(`[data-detector-id="${imageId}"]`);
-
-  if (!img || !img.detectorElements) {
-    console.error(`Image not found for results: ${imageId}`);
-    return;
-  }
-
-  const { button, toggleButton } = img.detectorElements;
-
-  // Update button state
-  button.dataset.processing = 'false';
-
-  // Clear processing status
-  processingImages.delete(imageId);
-
-  // Handle errors
-  const icon = button.querySelector('img');
-  if (icon) {
-    icon.src = chrome.runtime.getURL('icons/retry.png');
-    icon.alt = 'Retry detection';
-    button.title = 'Retry detection';
-  }
-
-  if (error) {
-    handleDetectionError(img, error);
-    return;
-  }
-
-  // Store the detection result URL
-  img.dataset.detectionSrc = results.url;
-
-  // Set the image source to the detection result by default
-  img.src = img.dataset.detectionSrc;
-
-  // Update the toggle button text to "SHOW" (to allow switching back to the original image)
-  toggleButton.textContent = 'SHOW';
-
-  // Make the toggle button visible
-  toggleButton.style.display = 'inline-block';
 }
 
 // Set up a MutationObserver to handle dynamically added images

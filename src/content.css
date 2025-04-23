@@ -35,14 +35,10 @@
   pointer-events: auto;
 }
 
-.comic-bubble-detector-button:hover {
+.comic-bubble-detector-wrapper .comic-bubble-detector-button:hover {
   pointer-events: auto;
   opacity: 1;
-  transform: scale(1.1);
-}
-
-.comic-bubble-detector-button:active {
-  transform: scale(0.95);
+  transform: scale(1.05);
 }
 
 .comic-bubble-detector-results {
@@ -54,31 +50,8 @@
   pointer-events: none;
 }
 
-.bubble-text-overlay {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  overflow: hidden;
-  padding: 5px;
-  box-sizing: border-box;
-  color: black;
-  font-family: 'CC Wild Words', 'Comic Sans MS', 'Arial', sans-serif;
-  font-weight: bold;
-  white-space: normal;
-  word-wrap: break-word;
-  pointer-events: auto;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.bubble-text-overlay:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
 .comic-bubble-toggle-button {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgb(255, 255, 255);
   color: black;
   border: 1px solid black;
   border-radius: 10px;
@@ -97,7 +70,7 @@
   pointer-events: none;
   position: absolute;
   top: 60px;
-  left: 0px;
+  left: 5px;
 }
 
 .comic-bubble-detector-wrapper:hover .comic-bubble-toggle-button {
@@ -105,9 +78,8 @@
   pointer-events: auto;
 }
 
-.comic-bubble-toggle-button:hover {
+.comic-bubble-detector-wrapper .comic-bubble-toggle-button:hover {
   pointer-events: auto;
   opacity: 1;
   transform: scale(1.05);
-  background-color: rgb(255, 255, 255);
 }

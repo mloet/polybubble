@@ -10,10 +10,6 @@ let serviceSettings = {
   targetLanguage: 'EN'
 };
 
-// Request queue management
-let requestQueue = [];
-let isProcessing = false;
-
 // Load saved settings when background script starts
 chrome.storage.sync.get([
   'googleApiKey',
@@ -108,26 +104,6 @@ if (!globalThis.listenersRegistered) {
   globalThis.listenersRegistered = true;
 }
 
-// Add request to queue and process if possible
-function addToQueue(imageData, requestId, settings) {
-  requestQueue.push({ imageData, requestId, settings });
-  processNextInQueue();
-}
-
-// Process next request in queue
-function processNextInQueue() {
-  if (isProcessing || requestQueue.length === 0) return;
-
-  isProcessing = true;
-  const { imageData, requestId, settings } = requestQueue.shift();
-
-  processDetectionRequest(imageData, requestId, settings)
-    .finally(() => {
-      isProcessing = false;
-      processNextInQueue();
-    });
-}
-
 // Ensure offscreen document is active
 async function ensureOffscreenDocument() {
   try {
@@ -155,85 +131,105 @@ async function ensureOffscreenDocument() {
   }
 }
 
-// Process detection request by forwarding to offscreen document
-async function processDetectionRequest(imageData, requestId, settings) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const offscreenReady = await ensureOffscreenDocument();
+// Add request to queue and process if possible
+// function addToQueue(imageData, requestId, settings) {
+//   requestQueue.push({ imageData, requestId, settings });
+//   processNextInQueue();
+// }
 
-      if (!offscreenReady) {
-        handleDetectionError(requestId, "Failed to create offscreen document");
-        reject(new Error("Failed to create offscreen document"));
-        return;
-      }
+// // Process next request in queue
+// function processNextInQueue() {
+//   if (isProcessing || requestQueue.length === 0) return;
 
-      // Set a timeout for the request
-      const timeout = setTimeout(() => {
-        handleDetectionError(requestId, "Request timed out after 30 seconds");
-        reject(new Error("Request timed out"));
-      }, 120000); // 30 second timeout
+//   isProcessing = true;
+//   const { imageData, requestId, settings } = requestQueue.shift();
 
-      // Store timeout reference
-      const existingData = pendingRequests.get(requestId) || {};
-      pendingRequests.set(requestId, {
-        ...existingData,
-        timeout: timeout
-      });
+//   processDetectionRequest(imageData, requestId, settings)
+//     .finally(() => {
+//       isProcessing = false;
+//       processNextInQueue();
+//     });
+// }
 
-      console.log(`Forwarding detection request to offscreen document for request ${requestId}`);
+// // Process detection request by forwarding to offscreen document
+// async function processDetectionRequest(imageData, requestId, settings) {
+//   return new Promise(async (resolve, reject) => {
+//     try {
+//       const offscreenReady = await ensureOffscreenDocument();
 
-      // Forward the request to the offscreen document
-      chrome.runtime.sendMessage({
-        action: "detectObjects",
-        imageData: imageData,
-        requestId: requestId,
-        serviceSettings: settings
-      }).catch(error => {
-        clearTimeout(timeout);
-        handleDetectionError(requestId, `Error sending to offscreen document: ${error.message}`);
-        reject(error);
-      });
-    } catch (error) {
-      handleDetectionError(requestId, `Error in detection process: ${error.message}`);
-      reject(error);
-    }
-  });
-}
+//       if (!offscreenReady) {
+//         handleDetectionError(requestId, "Failed to create offscreen document");
+//         reject(new Error("Failed to create offscreen document"));
+//         return;
+//       }
 
-// Handle detection errors
-function handleDetectionError(requestId, errorMessage) {
-  console.error(`Detection error for request ${requestId}: ${errorMessage}`);
+//       // Set a timeout for the request
+//       const timeout = setTimeout(() => {
+//         handleDetectionError(requestId, "Request timed out after 30 seconds");
+//         reject(new Error("Request timed out"));
+//       }, 120000); // 30 second timeout
 
-  const requestData = pendingRequests.get(requestId);
-  if (!requestData) return;
+//       // Store timeout reference
+//       const existingData = pendingRequests.get(requestId) || {};
+//       pendingRequests.set(requestId, {
+//         ...existingData,
+//         timeout: timeout
+//       });
 
-  const { callback, sourceTabId, imageId, source, timeout } = requestData;
+//       console.log(`Forwarding detection request to offscreen document for request ${requestId}`);
 
-  // Clear timeout if it exists
-  if (timeout) {
-    clearTimeout(timeout);
-  }
+//       // Forward the request to the offscreen document
+//       chrome.runtime.sendMessage({
+//         action: "detectObjects",
+//         imageData: imageData,
+//         requestId: requestId,
+//         serviceSettings: settings
+//       }).catch(error => {
+//         clearTimeout(timeout);
+//         handleDetectionError(requestId, `Error sending to offscreen document: ${error.message}`);
+//         reject(error);
+//       });
+//     } catch (error) {
+//       handleDetectionError(requestId, `Error in detection process: ${error.message}`);
+//       reject(error);
+//     }
+//   });
+// }
 
-  // Send error to popup if applicable
-  if (source === 'popup' && callback) {
-    callback({ error: errorMessage });
-  }
+// // Handle detection errors
+// function handleDetectionError(requestId, errorMessage) {
+//   console.error(`Detection error for request ${requestId}: ${errorMessage}`);
 
-  // Send error to content script if applicable
-  if (source === 'content' && sourceTabId && imageId) {
-    chrome.tabs.sendMessage(sourceTabId, {
-      action: "detectionCompleted",
-      imageId: imageId,
-      error: errorMessage
-    }).catch(err => {
-      console.error(`Error sending error to tab ${sourceTabId}:`, err);
-    });
-  }
+//   const requestData = pendingRequests.get(requestId);
+//   if (!requestData) return;
 
-  // Clean up the request data
-  pendingRequests.delete(requestId);
+//   const { callback, sourceTabId, imageId, source, timeout } = requestData;
 
-  // Process next item in queue
-  isProcessing = false;
-  processNextInQueue();
-}
+//   // Clear timeout if it exists
+//   if (timeout) {
+//     clearTimeout(timeout);
+//   }
+
+//   // Send error to popup if applicable
+//   if (source === 'popup' && callback) {
+//     callback({ error: errorMessage });
+//   }
+
+//   // Send error to content script if applicable
+//   if (source === 'content' && sourceTabId && imageId) {
+//     chrome.tabs.sendMessage(sourceTabId, {
+//       action: "detectionCompleted",
+//       imageId: imageId,
+//       error: errorMessage
+//     }).catch(err => {
+//       console.error(`Error sending error to tab ${sourceTabId}:`, err);
+//     });
+//   }
+
+//   // Clean up the request data
+//   pendingRequests.delete(requestId);
+
+//   // Process next item in queue
+//   isProcessing = false;
+//   processNextInQueue();
+// }

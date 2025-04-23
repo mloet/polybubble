@@ -16,11 +16,17 @@
     "type": "module"
   },
   "commands": {
-    "start-detection": {
+    "toggle-auto-detection": {
       "suggested_key": {
-        "default": "Alt+Shift+S"
+        "default": "Alt+Shift+A"
       },
-      "description": "Start detection"
+      "description": "Toggle Auto Detection"
+    },
+    "detect-all": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "Detect All Images"
     },
     "_execute_action": {
       "suggested_key": {

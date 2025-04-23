@@ -419,7 +419,7 @@ async function detectObjects(base64Image, requestId) {
 
     // Process results
     const results = await postprocessOutput(outputs, canvas, googleResults);
-    console.log(`Found ${results.detections.length} detections`);
+    // console.log(`Found ${results.detections.length} detections`);
 
     return results;
 
@@ -581,7 +581,7 @@ async function postprocessOutput(outputs, canvas, googleResults) {
 
       if (detection.text) {
         // console.log('Detected text:', detection.text);
-        detection.translatedText = await translateText(detection.text.replace(/\s+([.,!?])/g, '$1').replace(/-\n/g, ''), context, serviceSettings.sourceLanguage, serviceSettings.targetLanguage);
+        detection.translatedText = await translateText(detection.text.replace(/\s+([.,!?])/g, '$1').replace(/-\n/g, '').replace(/\s+/g, ' ').replace(/\n/g, ' '), context, serviceSettings.sourceLanguage, serviceSettings.targetLanguage);
         context += detection.text + ' ';
         detection.translatedText = detection.translatedText.toUpperCase();
 
@@ -597,7 +597,7 @@ async function postprocessOutput(outputs, canvas, googleResults) {
       detection.translatedText = detection.text || '';
     }
   }
-  return { url: canvas.toDataURL(), detections: filteredDetections };
+  return { url: canvas.toDataURL() };
 }
 
 function renderDetection(canvas, detection) {
@@ -660,7 +660,7 @@ function renderDetection(canvas, detection) {
 
   if (translatedText) {
 
-    ctx.filter = "blur(20px)";
+    ctx.filter = "blur(10px)";
     ctx.drawImage(canvas, x1, y1, boxWidth, boxHeight, x1, y1, boxWidth, boxHeight)
     ctx.filter = "none";
 
@@ -706,7 +706,7 @@ function renderDetection(canvas, detection) {
     let lineHeight;
 
     // Adjust font size until the text fits within the bounding box
-    while (fontSize >= 6) {
+    while (fontSize >= detection.fontSize / 2) {
       const result = splitTextIntoLines(translatedText, fontSize);
       lines = result.lines;
       lineHeight = fontSize * lineHeightFactor;
