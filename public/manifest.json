@@ -18,15 +18,10 @@
   "commands": {
     "toggle-auto-detection": {
       "suggested_key": {
-        "default": "Alt+Shift+A"
+        "default": "Alt+Shift+A",
+        "mac": "MacCtrl+Command+A"
       },
       "description": "Toggle Auto Detection"
-    },
-    "detect-all": {
-      "suggested_key": {
-        "default": "Alt+Shift+D"
-      },
-      "description": "Detect All Images"
     },
     "_execute_action": {
       "suggested_key": {

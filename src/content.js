@@ -1,9 +1,10 @@
 // content.js - Scan webpage for images and add detection functionality
 
 // Global variables to track processed images and detection results
-const processedImages = new Set();
+const identifiedImages = new Set();
 const processingImages = new Map(); // Maps image IDs to processing status
 let autoDetectEnabled = false; // Flag to track auto-detection state
+let visibilityObserver = null;
 let observer = null;
 
 // Initialize when the page is fully loaded
@@ -13,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Also run initialization on load for cases where DOMContentLoaded already fired
 window.addEventListener('load', () => {
-  if (processedImages.size === 0) {
+  if (identifiedImages.size === 0) {
     setTimeout(initializeImageDetection, 500);
   }
 });
@@ -25,13 +26,16 @@ if (document.readyState === 'complete') {
 
 // Set up message listener for responses from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'detectAllImages') {
-    const images = document.querySelectorAll('img');
-    images.forEach((img) => {
-      if (img.naturalWidth >= 400 && img.naturalHeight >= 400) {
-        handleDetectionRequest(img);
-      }
-    });
+  if (message.action === 'toggleAutoDetect') {
+    autoDetectEnabled = !autoDetectEnabled;
+    console.log(`Auto-detect is now ${autoDetectEnabled ? 'enabled' : 'disabled'}`);
+    if (autoDetectEnabled) {
+      identifiedImages.forEach((img) => {
+        if (img.naturalWidth >= 400 && img.naturalHeight >= 400 && !img.dataset.detectionSrc && isImageVisible(img)) {
+          handleDetectionRequest(img);
+        }
+      });
+    }
   }
 });
 
@@ -49,30 +53,41 @@ function initializeImageDetection() {
 
   // Set up a MutationObserver to handle dynamically added images
   setupMutationObserver();
+
+  setupVisibilityObserver();
 }
 
 // Process a single image
 function processImage(img) {
   // Skip if already processed or invalid
-  if (processedImages.has(img) || !img.src || img.src.startsWith('data:') || img.closest('.comic-bubble-detector-wrapper')) {
+  if (identifiedImages.has(img) || !img.src || img.src.startsWith('data:') || img.closest('.comic-bubble-detector-wrapper')) {
     return;
   }
 
   // Check if image is loaded and has sufficient size
   if (img.complete) {
     if (img.naturalWidth >= 400 && img.naturalHeight >= 400) {
-      processedImages.add(img);
+      identifiedImages.add(img);
       addDetectionButton(img);
+      // visibilityObserver.observe(img);
     }
   } else {
     // If not loaded, add a one-time load listener
     img.addEventListener('load', function onLoad() {
       img.removeEventListener('load', onLoad);
-      if (img.naturalWidth >= 400 && img.naturalHeight >= 400 && !processedImages.has(img)) {
-        processedImages.add(img);
+      if (img.naturalWidth >= 400 && img.naturalHeight >= 400 && !identifiedImages.has(img)) {
+        identifiedImages.add(img);
         addDetectionButton(img);
+        // visibilityObserver.observe(img); 
       }
     }, { once: true });
+  }
+
+  if (autoDetectEnabled) {
+    // If auto-detect is enabled, trigger detection immediately
+    if (img.naturalWidth >= 400 && img.naturalHeight >= 400 && !img.dataset.detectionSrc && isImageVisible(img)) {
+      handleDetectionRequest(img);
+    }
   }
 }
 
@@ -143,6 +158,8 @@ function addDetectionButton(img) {
           return;
         }
 
+        img.src = img.dataset.originalSrc;
+
         // If no results yet, process the image
         handleDetectionRequest(img);
       });
@@ -198,12 +215,16 @@ async function handleDetectionRequest(img) {
 
   processingImages.set(imageId, true);
 
-  const { button } = img.detectorElements;
+  const { button, toggleButton } = img.detectorElements;
   const icon = button.querySelector('img');
+  if (toggleButton) {
+    toggleButton.style.display = 'none'; // Hide toggle button during processing
+  }
   if (icon) {
     icon.alt = 'Processing...';
     button.dataset.processing = 'true';
     button.title = 'Processing image...';
+    // button.classList.add('processing');
   }
 
   const cycleImages = ['icons/ellipses1.png', 'icons/ellipses2.png', 'icons/ellipses.png'];
@@ -235,7 +256,7 @@ async function handleDetectionRequest(img) {
     img.dataset.detectionSrc = results.url;
     img.src = img.dataset.detectionSrc;
 
-    const { toggleButton } = img.detectorElements;
+    // const { toggleButton } = img.detectorElements;
     toggleButton.textContent = 'HIDE';
     toggleButton.style.display = 'inline-block';
 
@@ -251,9 +272,37 @@ async function handleDetectionRequest(img) {
       icon.src = chrome.runtime.getURL('icons/retry.png');
       icon.alt = 'Retry detection';
       button.dataset.processing = 'false';
+      // button.classList.remove('processing');
       button.title = 'Retry detection';
     }
   }
+}
+
+function isImageVisible(img) {
+  if (!img || img.offsetParent === null) {
+    // Element is not in the DOM or is hidden with display: none
+    return false;
+  }
+
+  const rect = img.getBoundingClientRect();
+
+  // Check if the image is within the viewport
+  const isInViewport = (
+    rect.top >= 0 &&
+    rect.left >= 0 &&
+    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+  );
+
+  // Check if the image has a size and is not hidden with visibility: hidden or opacity: 0
+  const isVisible = (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    window.getComputedStyle(img).visibility !== 'hidden' &&
+    window.getComputedStyle(img).opacity !== '0'
+  );
+
+  return isInViewport && isVisible;
 }
 
 function isCrossOrigin(url) {
@@ -274,7 +323,33 @@ function isCrossOrigin(url) {
   }
 }
 
-// Set up a MutationObserver to handle dynamically added images
+function setupVisibilityObserver() {
+  // Clean up any existing observer
+  if (visibilityObserver) {
+    visibilityObserver.disconnect();
+  }
+
+  // Create a new IntersectionObserver
+  visibilityObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      const img = entry.target;
+
+      // If the image is visible and auto-detect is enabled, process it
+      if (entry.isIntersecting && autoDetectEnabled && !img.dataset.detectionSrc) {
+        visibilityObserver.unobserve(img); // Stop observing this image
+        handleDetectionRequest(img); // Trigger detection
+      }
+    });
+  });
+
+  identifiedImages.forEach((img) => {
+      if (img.naturalWidth >= 400 && img.naturalHeight >= 400 && !img.dataset.detectionSrc) {
+        visibilityObserver.observe(img);
+      }
+    }
+  );
+}
+
 function setupMutationObserver() {
   // Clean up existing observer
   if (observer) {
@@ -285,10 +360,10 @@ function setupMutationObserver() {
   observer = new MutationObserver((mutations) => {
     let newImages = [];
 
-    // First collect all new images
-    mutations.forEach(mutation => {
+    // Collect all new images
+    mutations.forEach((mutation) => {
       if (mutation.type === 'childList') {
-        mutation.addedNodes.forEach(node => {
+        mutation.addedNodes.forEach((node) => {
           // Direct image nodes
           if (node.nodeName === 'IMG') {
             newImages.push(node);
@@ -297,7 +372,7 @@ function setupMutationObserver() {
           // Images inside added elements
           if (node.nodeType === Node.ELEMENT_NODE) {
             const images = node.querySelectorAll('img');
-            images.forEach(img => newImages.push(img));
+            images.forEach((img) => newImages.push(img));
           }
         });
       }
@@ -306,32 +381,18 @@ function setupMutationObserver() {
     // Deduplicate images
     newImages = [...new Set(newImages)];
 
-    // Process in batches to avoid stack overflow
-    if (newImages.length > 0) {
-      // Process first 10 images immediately
-      const firstBatch = newImages.slice(0, 10);
-      firstBatch.forEach(processImage);
-
-      // Process remaining images with delay
-      if (newImages.length > 10) {
-        const remainingBatches = [];
-        for (let i = 10; i < newImages.length; i += 10) {
-          remainingBatches.push(newImages.slice(i, i + 10));
-        }
-
-        // Process remaining batches with increasing delays
-        remainingBatches.forEach((batch, index) => {
-          setTimeout(() => {
-            batch.forEach(processImage);
-          }, 100 * (index + 1));
-        });
+    // Process and observe new images
+    newImages.forEach((img) => {
+      processImage(img);
+      if (img.naturalWidth >= 400 && img.naturalHeight >= 400) {
+        visibilityObserver.observe(img);
       }
-    }
+    });
   });
 
   // Start observing
   observer.observe(document.body, {
     childList: true,
-    subtree: true
+    subtree: true,
   });
 }

@@ -728,7 +728,7 @@ function renderDetection(canvas, detection) {
     ctx.font = `italic bold ${fontSize}px "CC Wild Words", "Comic Sans MS", Arial, sans-serif`;
     ctx.fillStyle = 'black'; // Text fill color
     ctx.strokeStyle = 'white'; // Outline color
-    ctx.lineWidth = 8; // Outline thickness
+    ctx.lineWidth = 4; // Outline thickness
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 

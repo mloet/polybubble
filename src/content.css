@@ -41,6 +41,10 @@
   transform: scale(1.05);
 }
 
+.comic-bubble-detector-button.processing {
+  opacity: 1 !important;
+}
+
 .comic-bubble-detector-results {
   position: absolute;
   top: 0;

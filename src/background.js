@@ -33,6 +33,17 @@ let requestId = 0;
 
 // Register listeners
 if (!globalThis.listenersRegistered) {
+  chrome.commands.onCommand.addListener((command) => {
+    if (command === "toggle-auto-detection") {
+      // Send a message to all tabs to toggle auto-detection
+      chrome.tabs.query({ url: "<all_urls>" }, (tabs) => {
+        tabs.forEach((tab) => {
+          chrome.tabs.sendMessage(tab.id, { action: "toggleAutoDetect" });
+        });
+      });
+    }
+  });
+
   // Handle messages from popup.js or content.js
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Handle settings updates from popup
